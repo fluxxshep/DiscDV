@@ -61,7 +61,6 @@ class FreeDVSource(discord.AudioSource):
         if n_available_receive_samples > self.fdv.get_nin() * 2:
             receive_samples = get_bytes_from_queue_nowait(self.rx_queue, fdv.get_nin() * 2)
             decoded_speech = self.fdv.rx(receive_samples)
-            rx_status = self.fdv.get_rx_status()
 
             output_samples = mono_to_stereo(
                 resampy.resample(np.frombuffer(decoded_speech, dtype=np.int16),
@@ -394,5 +393,6 @@ def cleanup_all():
     print('ALl closed successfully!')
 
 
+print('Starting bot...')
 bot.run(TOKEN)
 cleanup_all()
