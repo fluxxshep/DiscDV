@@ -40,7 +40,9 @@ at https://freedv.org, then go to the installation folder and copying
 Then, run `audio_config.py`, and find the numbers for the audio devices connecting your PC and radio.
 Edit the `audio_input_device` and `audio_output_device` variables in `audio_config.py` to match those device numbers.
 
-Finally, edit the `rigctld_command` variable in `rig_config.py` to control your radio properly. Go to
+Finally, install hamlib from https://hamlib.github.io/ 
+
+Edit the `rigctld_command` variable in `rig_config.py` to start `rigctld` and control your radio properly. Go to
 https://hamlib.sourceforge.net/html/rigctld.1.html for help with rigctld.
 
 ## Step five: you should be good to go!
