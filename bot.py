@@ -80,13 +80,16 @@ class FreeDVSource(discord.AudioSource):
 
 
 class FreeDVSink(discord.sinks.Sink):
-    def __init__(self, record_user_ids, _freedv: freedv.FreeDV700D):
+    def __init__(self, q: queue.Queue, record_user_ids, _freedv: freedv.FreeDV700D):
         super().__init__()
+        self.tx_queue = q
         self.record_user_ids = record_user_ids
         self.fdv = _freedv
         self.tx_enabled = False
+        self.ptt = False
+        self.tx_volume = 100
 
-    def output_tx(self):
+    def tx(self):
         nsamples = self.fdv.get_n_speech_samples() * 2
         audios_int16 = []
 
@@ -118,10 +121,27 @@ class FreeDVSink(discord.sinks.Sink):
                 output_audio += audio
 
             output_audio = output_audio.tobytes()
-            return self.fdv.tx(output_audio) if self.tx_enabled else None
+            tx_data = self.fdv.tx(output_audio) if self.tx_enabled else None
 
         except IndexError:
-            return None
+            tx_data = None
+
+        if tx_data:
+            tx_int16 = np.frombuffer(tx_data, dtype=np.int16) * (self.tx_volume / 100)
+            tx_data = tx_int16.tobytes()
+
+            for data in tx_data:
+                self.tx_queue.put(data)
+
+            self.ptt = True
+
+        else:
+            self.ptt = False
+
+        return self.ptt
+
+    def set_tx_volume(self, level: int):
+        self.tx_volume = level
 
     def enable_tx(self, value: bool):
         self.tx_enabled = value
@@ -153,15 +173,13 @@ def pa_callback(in_data, frame_count, time_info, status):
         for data in in_data:
             rx_queue.put(data.to_bytes(1))
 
-        tx_data = vc_sink.output_tx()
-        if tx_data:
-            for data in tx_data:
-                tx_queue.put(data)
+        new_ptt = vc_sink.tx()
 
-            if not ptt:
-                ptt = True
-                rigctld.set_ptt(ptt)
-        elif ptt:
+        if new_ptt and not ptt:
+            ptt = True
+            rigctld.set_ptt(ptt)
+
+        elif ptt and not new_ptt:
             ptt = False
             rigctld.set_ptt(ptt)
 
@@ -172,6 +190,7 @@ def pa_callback(in_data, frame_count, time_info, status):
 
 
 pa = pyaudio.PyAudio()
+tx_volume = audio_config.tx_volume
 
 input_device_name = pa.get_device_info_by_index(audio_config.audio_input_device)['name']
 output_device_name = pa.get_device_info_by_index(audio_config.audio_output_device)['name']
@@ -319,14 +338,15 @@ async def on_voice_leave(sink: discord.sinks, channel: discord.TextChannel, *arg
 
 @bot.slash_command(name='join', description='Make the bot join a voice channel to use the radio!')
 async def join_voice_channel(ctx: discord.ApplicationContext):
-    global vc, vc_sink, rx_queue, fdv
+    global vc, vc_sink, rx_queue, tx_queue, fdv
 
     if vc:
         await ctx.respond('Bot is already in a voice channel!')
         return
 
     voice = ctx.author.voice
-    vc_sink = FreeDVSink([operator.uuid for operator in bot_db.get_operators()], fdv)
+    vc_sink = FreeDVSink(tx_queue, [operator.uuid for operator in bot_db.get_operators()], fdv)
+    vc_sink.set_tx_volume(tx_volume)
 
     if not voice:
         await ctx.respond('You are not in a voice channel!')

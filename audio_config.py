@@ -1,5 +1,6 @@
 audio_input_device = 3
 audio_output_device = 6
+tx_volume = 100
 
 if __name__ == '__main__':
     import pyaudio
