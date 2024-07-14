@@ -6,22 +6,7 @@ import audio_config
 import rig_control
 import rig_config
 import audio
-
-pa = pyaudio.PyAudio()
-tx_volume = audio_config.tx_volume
-
-input_device_name = pa.get_device_info_by_index(audio_config.audio_input_device)['name']
-output_device_name = pa.get_device_info_by_index(audio_config.audio_output_device)['name']
-
-print(f'Starting audio using input device [{input_device_name}] and output device [{output_device_name}]')
-try:
-    af_stream = pa.open(rate=8000, channels=1, format=pyaudio.paInt16, input=True, output=True, frames_per_buffer=1024,
-                        stream_callback=audio.pa_callback,
-                        input_device_index=audio_config.audio_input_device,
-                        output_device_index=audio_config.audio_output_device)
-except Exception:
-    print('Error starting audio! Ensure the input and output devices are correctly configured in audio_config.py')
-    quit(1)
+import queue
 
 try:
     TOKEN = open('token.txt', 'rt').read()
@@ -50,10 +35,53 @@ except Exception:
     print('Error loading rigctld! Ensure the rigctld_command in rig_control.py is correct.')
     quit(1)
 
-ptt = False
-
 rigctld.set_mode('USB', 3000)
 rigctld.set_freq(rig_config.default_freq * 1000)
+
+rx_queue = queue.Queue()
+tx_queue = queue.Queue()
+ptt = False
+
+
+def pa_callback(in_data, frame_count, time_info, status):
+    global rx_queue, tx_queue, ptt
+
+    tx_mod = b'\x00\x00' * frame_count
+    if vc_sink is not None:
+        for data in in_data:
+            rx_queue.put(data.to_bytes(1))
+
+        new_ptt = vc_sink.tx()
+
+        if new_ptt and not ptt:
+            ptt = True
+            rigctld.set_ptt(ptt)
+
+        elif ptt and not new_ptt:
+            ptt = False
+            rigctld.set_ptt(ptt)
+
+        if tx_queue.qsize() > frame_count * 2:
+            tx_mod = audio.get_bytes_from_queue_nowait(tx_queue, frame_count * 2)
+
+    return tx_mod, pyaudio.paContinue
+
+
+pa = pyaudio.PyAudio()
+tx_volume = audio_config.tx_volume
+
+input_device_name = pa.get_device_info_by_index(audio_config.audio_input_device)['name']
+output_device_name = pa.get_device_info_by_index(audio_config.audio_output_device)['name']
+
+print(f'Starting audio using input device [{input_device_name}] and output device [{output_device_name}]')
+try:
+    af_stream = pa.open(rate=8000, channels=1, format=pyaudio.paInt16, input=True, output=True, frames_per_buffer=1024,
+                        stream_callback=pa_callback,
+                        input_device_index=audio_config.audio_input_device,
+                        output_device_index=audio_config.audio_output_device)
+except Exception:
+    print('Error starting audio! Ensure the input and output devices are correctly configured in audio_config.py')
+    quit(1)
 
 
 @bot.event

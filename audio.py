@@ -5,10 +5,7 @@ from collections import deque
 import discord
 import resampy
 import freedv
-
-rx_queue = queue.Queue()
-tx_queue = queue.Queue()
-tx_buffer = deque()
+import rig_control
 
 
 def generate_silence(nframes):
@@ -55,7 +52,7 @@ class FreeDVSource(discord.AudioSource):
         n_available_receive_samples = self.rx_queue.qsize()
 
         if n_available_receive_samples > self.fdv.get_nin() * 2:
-            receive_samples = get_bytes_from_queue_nowait(self.rx_queue, fdv.get_nin() * 2)
+            receive_samples = get_bytes_from_queue_nowait(self.rx_queue, self.fdv.get_nin() * 2)
             decoded_speech = self.fdv.rx(receive_samples)
 
             output_samples = mono_to_stereo(
@@ -158,28 +155,3 @@ def get_bytes_from_queue_nowait(q: queue.Queue, num_items: int):
             break
 
     return output
-
-
-def pa_callback(in_data, frame_count, time_info, status):
-    global vc, vc_sink, fdv, bot_db, rx_queue, tx_queue, rigctld, ptt
-
-    tx_mod = b'\x00\x00' * frame_count
-
-    if vc:
-        for data in in_data:
-            rx_queue.put(data.to_bytes(1))
-
-        new_ptt = vc_sink.tx()
-
-        if new_ptt and not ptt:
-            ptt = True
-            rigctld.set_ptt(ptt)
-
-        elif ptt and not new_ptt:
-            ptt = False
-            rigctld.set_ptt(ptt)
-
-        if tx_queue.qsize() > frame_count * 2:
-            tx_mod = get_bytes_from_queue_nowait(tx_queue, frame_count * 2)
-
-    return tx_mod, pyaudio.paContinue
