@@ -250,6 +250,7 @@ async def get_freq(ctx: discord.ApplicationContext):
 
 
 def cleanup_all():
+    global fdv, rigctld, bot_db, af_stream, pa
     print('Cleaning everything up...')
     fdv.close()
     rigctld.close()
@@ -259,6 +260,11 @@ def cleanup_all():
     print('ALl closed successfully!')
 
 
-print('Starting bot...')
-bot.run(TOKEN)
-cleanup_all()
+def main():
+    print('Starting bot...')
+    bot.run(TOKEN)
+    cleanup_all()
+
+
+if __name__ == '__main__':
+    main()
