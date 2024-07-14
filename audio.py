@@ -4,6 +4,7 @@ import queue
 from collections import deque
 import discord
 import resampy
+import freedv
 
 rx_queue = queue.Queue()
 tx_queue = queue.Queue()
