@@ -1,11 +1,9 @@
-import pyaudio
 import numpy as np
 import queue
 from collections import deque
 import discord
 import resampy
 import freedv
-import rig_control
 
 
 def generate_silence(nframes):

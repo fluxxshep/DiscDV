@@ -10,9 +10,9 @@ import queue
 
 try:
     TOKEN = open('token.txt', 'rt').read()
-except Exception:
+except Exception as e:
     print('Error loading token.txt, ensure the file exists and contains only your bot token!')
-    quit(1)
+    raise e
 
 print('Loading Discord modules...')
 
@@ -24,18 +24,18 @@ vc_sink: audio.FreeDVSink | None = None
 print('Loading FreeDV...')
 try:
     fdv = freedv.FreeDV700D()
-except Exception:
+except Exception as e:
     print('Error loading FreeDV! Make sure all codec2 .dll / .so files are built correctly and in the lib directory.')
-    quit(1)
+    raise e
 
 print('Loading rigctld...')
 try:
     rigctld = rig_control.RigControl(rig_config.rigctld_cmd)
-except Exception:
+except Exception as e:
     print('Error loading rigctld! Ensure the rigctld_command in rig_control.py is correct.')
-    quit(1)
+    raise e
 
-rigctld.set_mode('USB', 3000)
+rigctld.set_mode(rig_config.default_mode, 3000)
 rigctld.set_freq(rig_config.default_freq * 1000)
 
 rx_queue = queue.Queue()
@@ -79,9 +79,9 @@ try:
                         stream_callback=pa_callback,
                         input_device_index=audio_config.audio_input_device,
                         output_device_index=audio_config.audio_output_device)
-except Exception:
+except Exception as e:
     print('Error starting audio! Ensure the input and output devices are correctly configured in audio_config.py')
-    quit(1)
+    raise e
 
 
 @bot.event
@@ -249,6 +249,18 @@ async def get_freq(ctx: discord.ApplicationContext):
     await ctx.respond(f'Current VFO: {freq / 1000} KHz')
 
 
+@bot.slash_command(name='set_mode', description='Set the radio modulation mode')
+async def set_mode(ctx: discord.ApplicationContext, mode: str):
+    rigctld.set_mode(mode, 3000)
+    await ctx.respond(f'Radio set to: {mode}')
+
+
+@bot.slash_command(name='get_mode', description='Get the current radio modulation mode')
+async def get_mode(ctx: discord.ApplicationContext):
+    mode = rigctld.get_mode()[0]
+    await ctx.respond(f'The radio is currently set to: {mode}')
+
+
 def cleanup_all():
     global fdv, rigctld, bot_db, af_stream, pa
     print('Cleaning everything up...')
@@ -261,6 +273,7 @@ def cleanup_all():
 
 
 def main():
+    global bot
     print('Starting bot...')
     bot.run(TOKEN)
     cleanup_all()
