@@ -61,11 +61,13 @@ class RigControl:
 
     def get_mode(self):
         self.rigctld_socket.send('m\n'.encode())
-        recv = self.receive_line().split(' ')
-        mode = recv[0]
-        passband = int(recv[1])
-
-        return mode, passband
+        recv = self.receive_line()
+        # recv_split = recv.split(' ')
+        # mode = recv_split[0]
+        # passband = int(recv_split[1])
+        #
+        # return mode, passband
+        return recv
 
     def set_mode(self, mode: str, passband: int):
         self.rigctld_socket.send(f'M {mode} {passband}\n'.encode())

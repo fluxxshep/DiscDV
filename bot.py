@@ -35,7 +35,7 @@ except Exception as e:
     print('Error loading rigctld! Ensure the rigctld_command in rig_control.py is correct.')
     raise e
 
-rigctld.set_mode(rig_config.default_mode, 3000)
+rigctld.set_mode(rig_config.default_mode, -1)
 rigctld.set_freq(rig_config.default_freq * 1000)
 
 rx_queue = queue.Queue()
@@ -251,13 +251,13 @@ async def get_freq(ctx: discord.ApplicationContext):
 
 @bot.slash_command(name='set_mode', description='Set the radio modulation mode')
 async def set_mode(ctx: discord.ApplicationContext, mode: str):
-    rigctld.set_mode(mode, 3000)
+    rigctld.set_mode(mode, -1)
     await ctx.respond(f'Radio set to: {mode}')
 
 
 @bot.slash_command(name='get_mode', description='Get the current radio modulation mode')
 async def get_mode(ctx: discord.ApplicationContext):
-    mode = rigctld.get_mode()[0]
+    mode = rigctld.get_mode()
     await ctx.respond(f'The radio is currently set to: {mode}')
 
 
