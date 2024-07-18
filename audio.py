@@ -37,7 +37,7 @@ def mono_to_stereo(samples: bytes):
 
 
 class FreeDVSource(discord.AudioSource):
-    def __init__(self, q: queue.Queue, _freedv: freedv.FreeDV700D):
+    def __init__(self, q: queue.Queue, _freedv: freedv.FreeDV700D | None):
         super().__init__()
         self.rx_queue = q
         self.fdv = _freedv
@@ -45,16 +45,24 @@ class FreeDVSource(discord.AudioSource):
         self.n_samples_per_read = 3840
         self.audio_buffer = deque()
 
+        self.receive_freedv = True if self.fdv else False
+
     def read(self) -> bytes:
         output = b''
         n_available_receive_samples = self.rx_queue.qsize()
 
-        if n_available_receive_samples > self.fdv.get_nin() * 2:
-            receive_samples = get_bytes_from_queue_nowait(self.rx_queue, self.fdv.get_nin() * 2)
-            decoded_speech = self.fdv.rx(receive_samples)
+        if self.fdv:
+            nin = self.fdv.get_nin() * 2
+        else:
+            nin = 2048  # don't know if the value of this really means much
+
+        if n_available_receive_samples > nin:
+            receive_samples = get_bytes_from_queue_nowait(self.rx_queue, nin)
+            if self.receive_freedv:
+                receive_samples = self.fdv.rx(receive_samples)
 
             output_samples = mono_to_stereo(
-                resampy.resample(np.frombuffer(decoded_speech, dtype=np.int16),
+                resampy.resample(np.frombuffer(receive_samples, dtype=np.int16),
                                  8000, 48000).astype(np.int16).tobytes()
             )
 
@@ -69,9 +77,12 @@ class FreeDVSource(discord.AudioSource):
 
         return output
 
+    def set_receive_freedv(self, value):
+        self.receive_freedv = value if self.fdv else False
+
 
 class FreeDVSink(discord.sinks.Sink):
-    def __init__(self, q: queue.Queue, record_user_ids, _freedv: freedv.FreeDV700D):
+    def __init__(self, q: queue.Queue, record_user_ids, _freedv: freedv.FreeDV700D | None):
         super().__init__()
         self.tx_queue = q
         self.record_user_ids = record_user_ids
@@ -80,8 +91,10 @@ class FreeDVSink(discord.sinks.Sink):
         self.ptt = False
         self.tx_volume = 100
 
+        self.transmit_freedv = True if self.fdv else False
+
     def tx(self):
-        nsamples = self.fdv.get_n_speech_samples() * 2
+        nsamples = self.fdv.get_n_speech_samples() * 2 if self.fdv else 2048  # don't know what to set this to
         audios_int16 = []
 
         for user_id, audio in self.audio_data.items():
@@ -112,7 +125,10 @@ class FreeDVSink(discord.sinks.Sink):
                 output_audio += audio
 
             output_audio = output_audio.tobytes()
-            tx_data = self.fdv.tx(output_audio) if self.tx_enabled else None
+            if self.tx_enabled:
+                tx_data = self.fdv.tx(output_audio) if self.transmit_freedv else output_audio
+            else:
+                tx_data = None
 
         except IndexError:
             tx_data = None
@@ -141,6 +157,9 @@ class FreeDVSink(discord.sinks.Sink):
         self.finished = True
         for file in self.audio_data.values():
             file.cleanup()
+
+    def set_transmit_freedv(self, value):
+        self.transmit_freedv = value if self.fdv else False
 
 
 def get_bytes_from_queue_nowait(q: queue.Queue, num_items: int):

@@ -20,13 +20,16 @@ bot = discord.Bot()
 bot_db = database.BotDatabase('operators.db')
 vc: discord.VoiceClient | None = None
 vc_sink: audio.FreeDVSink | None = None
+vc_source: audio.FreeDVSource | None = None
 
 print('Loading FreeDV...')
 try:
     fdv = freedv.FreeDV700D()
 except Exception as e:
     print('Error loading FreeDV! Make sure all codec2 .dll / .so files are built correctly and in the lib directory.')
-    raise e
+    print('Continuing to start without FreeDV capability! This may cause bugs!')
+    fdv = None
+    # raise e
 
 print('Loading rigctld...')
 try:
@@ -96,6 +99,10 @@ async def ping(ctx):
 
 @bot.slash_command(name='analog_listen', description='Set whether the radio will play audio when not synced')
 async def set_analog_listen(ctx: discord.ApplicationContext, value: bool):
+    if not fdv:
+        await ctx.respond('FreeDV mode is not supported!')
+        return
+
     if ctx.author.guild_permissions.administrator or bot_db.get_operator(ctx.author.id).admin:
         fdv.listen_to_analog(value)
         await ctx.respond(f'Analog listen is now set to: {value}')
@@ -184,7 +191,7 @@ async def on_voice_leave(sink: discord.sinks, channel: discord.TextChannel, *arg
 
 @bot.slash_command(name='join', description='Make the bot join a voice channel to use the radio!')
 async def join_voice_channel(ctx: discord.ApplicationContext):
-    global vc, vc_sink, rx_queue, tx_queue, fdv
+    global vc, vc_sink, vc_source, rx_queue, tx_queue, fdv
 
     if vc:
         await ctx.respond('Bot is already in a voice channel!')
@@ -193,6 +200,7 @@ async def join_voice_channel(ctx: discord.ApplicationContext):
     voice = ctx.author.voice
     vc_sink = audio.FreeDVSink(tx_queue, [operator.uuid for operator in bot_db.get_operators()], fdv)
     vc_sink.set_tx_volume(tx_volume)
+    vc_source = audio.FreeDVSource(rx_queue, fdv)
 
     if not voice:
         await ctx.respond('You are not in a voice channel!')
@@ -207,7 +215,7 @@ async def join_voice_channel(ctx: discord.ApplicationContext):
     )
 
     vc.play(
-        audio.FreeDVSource(rx_queue, fdv),
+        vc_source,
         wait_finish=False
     )
 
@@ -216,7 +224,7 @@ async def join_voice_channel(ctx: discord.ApplicationContext):
 
 @bot.slash_command(name='leave', description='Make the bot leave the voice channel')
 async def leave_voice_channel(ctx: discord.ApplicationContext):
-    global vc, vc_sink
+    global vc, vc_sink, vc_source
 
     if not vc:
         await ctx.respond('The bot is not currently in a voice channel!')
@@ -228,6 +236,7 @@ async def leave_voice_channel(ctx: discord.ApplicationContext):
     await vc.disconnect()
     vc = None
     vc_sink = None
+    vc_source = None
 
     await ctx.respond('Left the voice channel!')
 
@@ -261,10 +270,29 @@ async def get_mode(ctx: discord.ApplicationContext):
     await ctx.respond(f'The radio is currently set to: {mode}')
 
 
+@bot.slash_command(name='analog_mode', description='Set the radio to transmit and receive in analog mode')
+async def analog_mode(ctx: discord.ApplicationContext):
+    global vc_sink, vc_source
+    vc_sink.set_transmit_freedv(False)
+    vc_source.set_receive_freedv(False)
+    await ctx.respond('Set radio mode to analog')
+
+
+@bot.slash_command(name='freedv_mode', description='Set the radio to transmit and receive in FreeDV mode')
+async def freedv_mode(ctx: discord.ApplicationContext):
+    global vc_sink, vc_source
+    vc_sink.set_transmit_freedv(True)
+    vc_source.set_receive_freedv(True)
+    await ctx.respond('Set radio mode to FreeDV')
+
+
 def cleanup_all():
     global fdv, rigctld, bot_db, af_stream, pa
     print('Cleaning everything up...')
-    fdv.close()
+
+    if fdv:
+        fdv.close()
+
     rigctld.close()
     bot_db.close()
     af_stream.close()
