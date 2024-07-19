@@ -1,4 +1,4 @@
-# DiscDV: FreeDV on a real HF transceiver from a Discord voice call!
+# DiscDV: FreeDV (and analog voice) on a real HF transceiver from a Discord voice call!
 
 Please be aware that this program is in very early development stages.
 Use on the air only if you are a licensed amateur radio operator,
@@ -25,7 +25,9 @@ In the directory of the python files, open a terminal and run `pip3 install -r r
 
 ## Step four: setting up DiscDV
 At this point, you should have your Discord bot's token in `token.txt`.
-The next thing to do is download or build the required Codec2 libraries.
+
+You can run this program without Codec2 libraries if you only want to use analog voice, but if you want FreeDV,
+the next thing to do is download or build the required Codec2 libraries.
 
 On **Linux**, this can be done by
 going to the codec2 GitHub page at https://github.com/drowe67/codec2, 
@@ -37,18 +39,18 @@ file by building it yourself, however I have found this tricky. Instead, you can
 at https://freedv.org, then go to the installation folder and copying 
 `libcodec2.dll` and `liblpcnetfreedv.dll` to the `lib` directory in the directory of the python files.
 
-Then, run `audio_config.py`, and find the numbers for the audio devices connecting your PC and radio.
-Edit the `audio_input_device` and `audio_output_device` variables in `audio_config.py` to match those device numbers.
+Then, run `config.py`, and find the numbers for the audio devices connecting your PC and radio.
+Edit the `audio_input_device` and `audio_output_device` variables in `config.py` to match those device numbers.
 
 Finally, install hamlib from https://hamlib.github.io/ 
 
-Edit the `rigctld_command` variable in `rig_config.py` to start `rigctld` and control your radio properly. Go to
+Edit the `rigctld_command` variable in `config.py` to start `rigctld` and control your radio properly. Go to
 https://hamlib.sourceforge.net/html/rigctld.1.html for help with rigctld.
 
 ## Step five: you should be good to go!
 Run the `bot.py` file with `python3 bot.py` to start the bot!
 
 # A note on OS compatibility
-This program is designed for Windows and Linux, but only tested by me on Windows.
+This program is designed for Windows and Linux, but only tested on Windows.
 There may be some issues on Linux that do not exist when running this program on Windows.
 This program is not designed to run on macOS.
