@@ -1,10 +1,19 @@
-# these should be self-explanatory
+# Audio configuration, these should be self-explanatory
 
 audio_input_device = 0
 audio_output_device = 0
 tx_volume = 100
 
-# don't touch anything below for regular use
+# Rig configuration
+
+# Keep port as default!
+# https://hamlib.sourceforge.net/html/rigctld.1.html
+
+rigctld_cmd = ""  # put your rigctld command here
+default_freq = 14236  # KHz
+default_mode = 'USB'  # USB or LSB
+
+# Don't touch anything below for regular use
 if __name__ == '__main__':
     import pyaudio
     pa = pyaudio.PyAudio()

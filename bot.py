@@ -2,9 +2,8 @@ import discord
 import database
 import freedv
 import pyaudio
-import audio_config
+import config
 import rig_control
-import rig_config
 import audio
 import queue
 
@@ -33,13 +32,13 @@ except Exception as e:
 
 print('Loading rigctld...')
 try:
-    rigctld = rig_control.RigControl(rig_config.rigctld_cmd)
+    rigctld = rig_control.RigControl(config.rigctld_cmd)
 except Exception as e:
-    print('Error loading rigctld! Ensure the rigctld_command in rig_control.py is correct.')
+    print('Error loading rigctld! Ensure the rigctld_command in config.py is correct.')
     raise e
 
-rigctld.set_mode(rig_config.default_mode, -1)
-rigctld.set_freq(rig_config.default_freq * 1000)
+rigctld.set_mode(config.default_mode, -1)
+rigctld.set_freq(config.default_freq * 1000)
 
 rx_queue = queue.Queue()
 tx_queue = queue.Queue()
@@ -71,19 +70,19 @@ def pa_callback(in_data, frame_count, time_info, status):
 
 
 pa = pyaudio.PyAudio()
-tx_volume = audio_config.tx_volume
+tx_volume = config.tx_volume
 
-input_device_name = pa.get_device_info_by_index(audio_config.audio_input_device)['name']
-output_device_name = pa.get_device_info_by_index(audio_config.audio_output_device)['name']
+input_device_name = pa.get_device_info_by_index(config.audio_input_device)['name']
+output_device_name = pa.get_device_info_by_index(config.audio_output_device)['name']
 
 print(f'Starting audio using input device [{input_device_name}] and output device [{output_device_name}]')
 try:
     af_stream = pa.open(rate=8000, channels=1, format=pyaudio.paInt16, input=True, output=True, frames_per_buffer=1024,
                         stream_callback=pa_callback,
-                        input_device_index=audio_config.audio_input_device,
-                        output_device_index=audio_config.audio_output_device)
+                        input_device_index=config.audio_input_device,
+                        output_device_index=config.audio_output_device)
 except Exception as e:
-    print('Error starting audio! Ensure the input and output devices are correctly configured in audio_config.py')
+    print('Error starting audio! Ensure the input and output devices are correctly configured in config.py')
     raise e
 
 
