@@ -83,9 +83,14 @@ class FreeDV700D:
 
         nout = self.c_lib.freedv_rx(self.freedv, self.speech_out, demod_in)
 
-        if self.get_rx_status() == 6 or self.analog_listen:
+        # if self.get_rx_status() == 6 or self.analog_listen:
+        #     return self.speech_out[:nout * 2]
+        #
+        # else:
+        #     return b'\x00\x00'
+        rx_status = self.get_rx_status()
+        if rx_status != 0 and rx_status != 10 or self.analog_listen:
             return self.speech_out[:nout * 2]
-
         else:
             return b'\x00\x00'
 

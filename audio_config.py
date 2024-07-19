@@ -1,7 +1,10 @@
-audio_input_device = 3
-audio_output_device = 6
+# these should be self-explanatory
+
+audio_input_device = 0
+audio_output_device = 0
 tx_volume = 100
 
+# don't touch anything below for regular use
 if __name__ == '__main__':
     import pyaudio
     pa = pyaudio.PyAudio()
